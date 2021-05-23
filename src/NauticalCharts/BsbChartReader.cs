@@ -15,6 +15,11 @@ namespace NauticalCharts
         private static readonly ReadOnlyMemory<byte> TextEntryEndToken = new ReadOnlyMemory<byte>(new byte[] { 0x0D, 0x0A });
         private static readonly ReadOnlyMemory<byte> TextSegmentEndToken = new ReadOnlyMemory<byte>(new byte[] { 0x1A, 0x00 });
 
+        // HACK: BSB 3.07 seems to omit the 4-null-byte token; it's probably generally be safe to
+        //       look for the 2-null-byte first half of the first index (which assumes the header
+        //       is less than 65KB).
+        private static readonly ReadOnlyMemory<byte> RasterEndToken = new ReadOnlyMemory<byte>(new byte[] { 0x00 });
+
         public static Task<BsbChart> ReadChartAsync(Stream stream, CancellationToken cancellationToken = default)
         {
             var reader = new BsbChartReader();
@@ -27,6 +32,7 @@ namespace NauticalCharts
             TextSegment,
             BitDepth,
             RasterSegment,
+            RasterRow,
             Done
         }
 
@@ -77,6 +83,7 @@ namespace NauticalCharts
                     {
                         ReaderState.TextSegment => this.ReadTextItems(ref reader, cancellationToken),
                         ReaderState.BitDepth => this.ReadBitDepth(ref reader, cancellationToken),
+                        ReaderState.RasterSegment => this.ReadRasterSegment(ref reader, cancellationToken),
                         _ => throw new ArgumentOutOfRangeException(nameof(this.state), $"Unrecognized state: {this.state}")
                     };
 
@@ -134,6 +141,69 @@ namespace NauticalCharts
                 this.state = ReaderState.Done;
 
                 return false;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        private bool ReadRasterSegment(ref SequenceReader<byte> reader, CancellationToken cancellationToken)
+        {
+            if (reader.IsNext(RasterEndToken.Span))
+            {
+                reader.Advance(RasterEndToken.Length);
+
+                this.state = ReaderState.Done;
+
+                return false;
+            }
+
+            if (reader.TryReadTo(out ReadOnlySequence<byte> text, TextEntryEndToken.Span))
+            {
+                // NOTE: Encoding.ASCII.GetString(ReadOnlySequence<byte>) was only added in .NET 5.
+
+                int length = checked((int)text.Length);
+
+                var rental = ArrayPool<byte>.Shared.Rent(length);
+
+                try
+                {
+                    text.CopyTo(rental);
+
+                    this.textEntries.Add(Encoding.ASCII.GetString(rental, 0, length));
+                }
+                finally
+                {
+                    ArrayPool<byte>.Shared.Return(rental);
+                }
+
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        private bool ReadRasterRow(ref SequenceReader<byte> reader, CancellationToken cancellationToken)
+        {
+            if (reader.IsNext(RasterEndToken.Span))
+            {
+                reader.Advance(RasterEndToken.Length);
+
+                // TODO: Push raster row.
+
+                this.state = ReaderState.RasterSegment;
+
+                return true;
+            }
+
+            if (reader.TryReadVariableLengthValue(out byte[] values))
+            {
+                // TODO: Push raster row value.
+
+                return true;
             }
             else
             {
