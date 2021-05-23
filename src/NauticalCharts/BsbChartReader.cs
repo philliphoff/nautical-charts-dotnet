@@ -109,7 +109,7 @@ namespace NauticalCharts
                 {
                     text.CopyTo(rental);
 
-                    this.textEntries.Add(Encoding.ASCII.GetString(rental));
+                    this.textEntries.Add(Encoding.ASCII.GetString(rental, 0, length));
                 }
                 finally
                 {
