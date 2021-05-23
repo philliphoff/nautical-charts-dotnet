@@ -32,6 +32,7 @@ namespace NauticalCharts
 
         private ReaderState state = ReaderState.TextSegment;
         private IList<string> textEntries = new List<string>();
+        private byte bitDepth = 0;
 
         private async Task<BsbChart> ReadChartInternalAsync(Stream stream, CancellationToken cancellationToken)
         {
@@ -75,6 +76,7 @@ namespace NauticalCharts
                     bool readItems = this.state switch
                     {
                         ReaderState.TextSegment => this.ReadTextItems(ref reader, cancellationToken),
+                        ReaderState.BitDepth => this.ReadBitDepth(ref reader, cancellationToken),
                         _ => throw new ArgumentOutOfRangeException(nameof(this.state), $"Unrecognized state: {this.state}")
                     };
 
@@ -91,9 +93,11 @@ namespace NauticalCharts
         {
             if (reader.IsNext(TextSegmentEndToken.Span))
             {
-                this.state = ReaderState.Done;
+                reader.Advance(TextSegmentEndToken.Length);
 
-                return false;
+                this.state = ReaderState.BitDepth;
+
+                return true;
             }
 
             if (reader.TryReadTo(out ReadOnlySequence<byte> text, TextEntryEndToken.Span))
@@ -116,6 +120,20 @@ namespace NauticalCharts
                 }
 
                 return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        private bool ReadBitDepth(ref SequenceReader<byte> reader, CancellationToken cancellationToken)
+        {
+            if (reader.TryRead(out byte value))
+            {
+                this.state = ReaderState.Done;
+
+                return false;
             }
             else
             {

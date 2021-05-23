@@ -11,7 +11,7 @@ namespace NauticalCharts.Tests
         [Fact]
         public async Task ReadsTextSegment()
         {
-            using var stream = await MockChartStream.CreateAsync("VER/3.07\r\n");
+            using var stream = await MockChartStream.CreateAsync("VER/3.07\r\n", 1);
 
             var chart = await BsbChartReader.ReadChartAsync(stream);
 
