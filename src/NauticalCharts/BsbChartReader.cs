@@ -74,7 +74,7 @@ namespace NauticalCharts
                 {
                     bool readItems = this.state switch
                     {
-                        ReaderState.TextSegment => this.ReadTextItems(reader, cancellationToken),
+                        ReaderState.TextSegment => this.ReadTextItems(ref reader, cancellationToken),
                         _ => throw new ArgumentOutOfRangeException(nameof(this.state), $"Unrecognized state: {this.state}")
                     };
 
@@ -87,7 +87,7 @@ namespace NauticalCharts
                 return reader.Position;
         }
 
-        private bool ReadTextItems(SequenceReader<byte> reader, CancellationToken cancellationToken)
+        private bool ReadTextItems(ref SequenceReader<byte> reader, CancellationToken cancellationToken)
         {
             if (reader.IsNext(TextSegmentEndToken.Span))
             {
@@ -98,7 +98,6 @@ namespace NauticalCharts
 
             if (reader.TryReadTo(out ReadOnlySequence<byte> text, TextEntryEndToken.Span))
             {
-                // TODO: Store text.
                 // NOTE: Encoding.ASCII.GetString(ReadOnlySequence<byte>) was only added in .NET 5.
 
                 int length = checked((int)text.Length);
