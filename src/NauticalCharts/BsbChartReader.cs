@@ -27,6 +27,64 @@ namespace NauticalCharts
             return reader.ReadChartInternalAsync(stream, cancellationToken);
         }
 
+        public static uint ParseRasterRowNumber(IList<byte> values)
+        {
+            uint number = 0;
+
+            for (int i = values.Count - 1, pow = 0; i >= 0; i--, pow++) {
+                number += values[i] * (uint)Math.Pow(128, pow);
+            }
+
+            return number;
+        }
+
+        private static readonly byte[] colorIndexMasks = new byte[]
+        {
+            0b00000000, // 0-bits (placeholder)
+            0b01000000, // 1-bits (2 color palette)
+            0b01100000, // 2-bits (4 color palette)
+            0b01110000, // 3-bits (8 color palette)
+            0b01111000, // 4-bits (16 color palette)
+            0b01111100, // 5-bits (32 color palette)
+            0b01111110, // 6-bits (64 color palette)
+            0b01111111  // 7-bits (128 color palette)
+        };
+
+        private static readonly byte[] runLengthMasks = new byte[]
+        {
+            0b01111111,
+            0b00111111,
+            0b00011111,
+            0b00001111,
+            0b00000111,
+            0b00000011,
+            0b00000001,
+            0b00000000
+        };
+
+        public static BsbRasterRun ParseRasterRun(IList<byte> values, byte bitDepth)
+        {
+            byte colorIndexMask = colorIndexMasks[bitDepth];
+
+            byte colorIndex = (byte)((values[0] & colorIndexMask) >> (7 - bitDepth));
+
+            byte lengthMask = runLengthMasks[bitDepth];
+
+            uint length = 1;
+
+            for (int i = values.Count - 1, j = 0; i >= 0; i--, j++) {
+                byte v = values[i];
+                
+                if (i == 0) {
+                    v &= lengthMask;
+                }
+
+                length += v * (uint)Math.Pow(128, j);
+            }
+
+            return new BsbRasterRun(colorIndex, length);
+        }
+
         private enum ReaderState
         {
             TextSegment,
@@ -42,7 +100,7 @@ namespace NauticalCharts
 
             public byte? BitDepth { get; set; }
 
-            public IList<byte[][]> RowEntries { get; } = new List<byte[][]>();
+            public IList<BsbRasterRow> RowEntries { get; } = new List<BsbRasterRow>();
         }
 
         private readonly IBsbChartProcessor textSegmentProcessor = new TextSegmentProcessor();
@@ -225,8 +283,8 @@ namespace NauticalCharts
 
         private sealed class RasterRowProcessor : IBsbChartProcessor
         {
-            private IList<IList<byte>> entries = new List<IList<byte>>();
-            private IList<byte> rowNumber;
+            private IList<BsbRasterRun> entries = new List<BsbRasterRun>();
+            private uint? rowNumber;
 
             public (ReaderState?, bool?) ReadChart(ref SequenceReader<byte> reader, CancellationToken cancellationToken, BsbChartReaderState state)
             {
@@ -234,7 +292,12 @@ namespace NauticalCharts
                 {
                     reader.Advance(RasterEndToken.Length);
 
-                    // TODO: Push raster row.
+                    if (!this.rowNumber.HasValue)
+                    {
+                        throw new InvalidOperationException("A raster row should start with a row number.");
+                    }
+
+                    state.RowEntries.Add(new BsbRasterRow(this.rowNumber.Value, this.entries));
 
                     return (ReaderState.RasterSegment, null);
                 }
@@ -243,11 +306,16 @@ namespace NauticalCharts
                 {
                     if (this.rowNumber == null)
                     {
-                        this.rowNumber = values;
+                        this.rowNumber = ParseRasterRowNumber(values);
                     }
                     else
                     {
-                        this.entries.Add(values);
+                        if (!state.BitDepth.HasValue)
+                        {
+                            throw new InvalidOperationException("Bit depth must be parsed before the raster segment.");
+                        }
+
+                        this.entries.Add(ParseRasterRun(values, state.BitDepth.Value));
                     }
 
                     return (null, true);
