@@ -24,5 +24,23 @@ namespace NauticalCharts.Tests
             Assert.True(chart.BitDepth.HasValue);
             Assert.Equal(1, chart.BitDepth.Value);
         }
+
+        [Fact]
+        public async Task ReadSampleChart()
+        {
+            using var stream = File.OpenRead("../../../../../assets/test/344102.KAP");
+
+            var chart = await BsbChartReader.ReadChartAsync(stream);
+
+            Assert.NotNull(chart);
+            Assert.NotNull(chart.TextSegment);
+            Assert.NotNull(chart.RasterSegment);
+            Assert.Equal(2098, chart.RasterSegment.Count());
+
+            foreach (var row in chart.RasterSegment)
+            {
+                Assert.Equal<uint>(1171, row.Runs.Aggregate<BsbRasterRun, uint>(0, (sum, run) => sum + run.Length));
+            }
+        }
     }
 }

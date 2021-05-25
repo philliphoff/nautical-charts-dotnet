@@ -157,7 +157,7 @@ namespace NauticalCharts
             return new BsbChart(
                 this.readerState.TextEntries.Select(entry => new BsbTextEntry("TEST", new[] { entry })),
                 this.readerState.BitDepth,
-                Enumerable.Empty<BsbRasterRow>());
+                this.readerState.RowEntries);
         }
 
         private SequencePosition? ReadItems(ReadOnlySequence<byte> buffer, CancellationToken cancellationToken)
