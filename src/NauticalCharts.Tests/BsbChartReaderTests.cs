@@ -21,6 +21,8 @@ namespace NauticalCharts.Tests
             Assert.NotNull(chart.TextSegment.First().Lines);
             Assert.Equal(1, chart.TextSegment.First().Lines.Count());
             Assert.Equal("VER/3.07", chart.TextSegment.First().Lines.First());
+            Assert.True(chart.BitDepth.HasValue);
+            Assert.Equal(1, chart.BitDepth.Value);
         }
     }
 }

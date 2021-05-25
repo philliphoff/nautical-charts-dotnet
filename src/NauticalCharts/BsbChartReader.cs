@@ -36,9 +36,35 @@ namespace NauticalCharts
             Done
         }
 
-        private ReaderState state = ReaderState.TextSegment;
-        private IList<string> textEntries = new List<string>();
-        private byte bitDepth = 0;
+        private sealed class BsbChartReaderState
+        {
+            public IList<string> TextEntries { get; } = new List<string>();
+
+            public byte? BitDepth { get; set; }
+
+            public IList<byte[][]> RowEntries { get; } = new List<byte[][]>();
+        }
+
+        private readonly IBsbChartProcessor textSegmentProcessor = new TextSegmentProcessor();
+        private readonly IBsbChartProcessor bitDepthProcessor = new BitDepthProcessor();
+        private readonly IBsbChartProcessor rasterSegmentProcessor = new RasterSegmentProcessor();
+        private readonly IBsbChartProcessor rasterRowProcessor = new RasterRowProcessor();
+
+        private IBsbChartProcessor currentProcessor;
+
+        private readonly BsbChartReaderState readerState = new BsbChartReaderState();
+
+        private interface IBsbChartProcessor
+        {
+            (ReaderState?, bool?) ReadChart(ref SequenceReader<byte> reader, CancellationToken cancellationToken, BsbChartReaderState state);
+
+            void Reset();
+        }
+
+        private BsbChartReader()
+        {
+            this.currentProcessor = this.textSegmentProcessor;
+        }
 
         private async Task<BsbChart> ReadChartInternalAsync(Stream stream, CancellationToken cancellationToken)
         {
@@ -57,7 +83,7 @@ namespace NauticalCharts
                     pipeReader.AdvanceTo(position.Value, buffer.End);
                 }
 
-                if (this.state == ReaderState.Done)
+                if (this.currentProcessor == null)
                 {
                     break;
                 }
@@ -70,7 +96,10 @@ namespace NauticalCharts
 
             pipeReader.Complete();
 
-            return new BsbChart(this.textEntries.Select(entry => new BsbTextEntry("TEST", new[] { entry })), Enumerable.Empty<BsbRasterRow>());
+            return new BsbChart(
+                this.readerState.TextEntries.Select(entry => new BsbTextEntry("TEST", new[] { entry })),
+                this.readerState.BitDepth,
+                Enumerable.Empty<BsbRasterRow>());
         }
 
         private SequencePosition? ReadItems(ReadOnlySequence<byte> buffer, CancellationToken cancellationToken)
@@ -79,15 +108,28 @@ namespace NauticalCharts
 
                 while (!reader.End)
                 {
-                    bool readItems = this.state switch
-                    {
-                        ReaderState.TextSegment => this.ReadTextItems(ref reader, cancellationToken),
-                        ReaderState.BitDepth => this.ReadBitDepth(ref reader, cancellationToken),
-                        ReaderState.RasterSegment => this.ReadRasterSegment(ref reader, cancellationToken),
-                        _ => throw new ArgumentOutOfRangeException(nameof(this.state), $"Unrecognized state: {this.state}")
-                    };
+                    var (processor, readItems) = this.currentProcessor.ReadChart(ref reader, cancellationToken, this.readerState);
 
-                    if (!readItems)
+                    if (processor.HasValue)
+                    {
+                        this.currentProcessor = processor.Value switch
+                        {
+                            ReaderState.TextSegment => this.textSegmentProcessor,
+                            ReaderState.BitDepth => this.bitDepthProcessor,
+                            ReaderState.RasterSegment => this.rasterSegmentProcessor,
+                            ReaderState.RasterRow => this.rasterRowProcessor,
+                            ReaderState.Done => null,
+                            _ => throw new ArgumentOutOfRangeException(nameof(processor), $"Unrecognized state: {processor.Value}")
+                        };
+
+                        if (this.currentProcessor == null)
+                        {
+                            break;
+                        }
+
+                        this.currentProcessor.Reset();
+                    }
+                    else if (readItems != true)
                     {
                         break;
                     }
@@ -96,118 +138,130 @@ namespace NauticalCharts
                 return reader.Position;
         }
 
-        private bool ReadTextItems(ref SequenceReader<byte> reader, CancellationToken cancellationToken)
+        private sealed class TextSegmentProcessor : IBsbChartProcessor
         {
-            if (reader.IsNext(TextSegmentEndToken.Span))
+            public (ReaderState?, bool?) ReadChart(ref SequenceReader<byte> reader, CancellationToken cancellationToken, BsbChartReaderState state)
             {
-                reader.Advance(TextSegmentEndToken.Length);
-
-                this.state = ReaderState.BitDepth;
-
-                return true;
-            }
-
-            if (reader.TryReadTo(out ReadOnlySequence<byte> text, TextEntryEndToken.Span))
-            {
-                // NOTE: Encoding.ASCII.GetString(ReadOnlySequence<byte>) was only added in .NET 5.
-
-                int length = checked((int)text.Length);
-
-                var rental = ArrayPool<byte>.Shared.Rent(length);
-
-                try
+                if (reader.IsNext(TextSegmentEndToken.Span))
                 {
-                    text.CopyTo(rental);
+                    reader.Advance(TextSegmentEndToken.Length);
 
-                    this.textEntries.Add(Encoding.ASCII.GetString(rental, 0, length));
-                }
-                finally
-                {
-                    ArrayPool<byte>.Shared.Return(rental);
+                    return (ReaderState.BitDepth, null);
                 }
 
-                return true;
+                if (reader.TryReadTo(out ReadOnlySequence<byte> text, TextEntryEndToken.Span))
+                {
+                    // NOTE: Encoding.ASCII.GetString(ReadOnlySequence<byte>) was only added in .NET 5.
+
+                    int length = checked((int)text.Length);
+
+                    var rental = ArrayPool<byte>.Shared.Rent(length);
+
+                    try
+                    {
+                        text.CopyTo(rental);
+
+                        state.TextEntries.Add(Encoding.ASCII.GetString(rental, 0, length));
+                    }
+                    finally
+                    {
+                        ArrayPool<byte>.Shared.Return(rental);
+                    }
+
+                    return (null, true);
+                }
+                else
+                {
+                    return (null, false);
+                }
             }
-            else
+
+            public void Reset()
             {
-                return false;
             }
         }
 
-        private bool ReadBitDepth(ref SequenceReader<byte> reader, CancellationToken cancellationToken)
+        private sealed class BitDepthProcessor : IBsbChartProcessor
         {
-            if (reader.TryRead(out byte value))
+            public (ReaderState?, bool?) ReadChart(ref SequenceReader<byte> reader, CancellationToken cancellationToken, BsbChartReaderState state)
             {
-                this.state = ReaderState.Done;
+                if (reader.TryRead(out byte value))
+                {
+                    state.BitDepth = value;
 
-                return false;
+                    return (ReaderState.RasterSegment, null);
+                }
+                else
+                {
+                    return (null, false);
+                }
             }
-            else
+
+            public void Reset()
             {
-                return false;
             }
         }
 
-        private bool ReadRasterSegment(ref SequenceReader<byte> reader, CancellationToken cancellationToken)
+        private sealed class RasterSegmentProcessor : IBsbChartProcessor
         {
-            if (reader.IsNext(RasterEndToken.Span))
+            public (ReaderState?, bool?) ReadChart(ref SequenceReader<byte> reader, CancellationToken cancellationToken, BsbChartReaderState state)
             {
-                reader.Advance(RasterEndToken.Length);
+                if (reader.IsNext(RasterEndToken.Span))
+                {
+                    reader.Advance(RasterEndToken.Length);
 
-                this.state = ReaderState.Done;
-
-                return false;
+                    return (ReaderState.Done, null);
+                }
+                else
+                {
+                    return (ReaderState.RasterRow, null);
+                }
             }
 
-            if (reader.TryReadTo(out ReadOnlySequence<byte> text, TextEntryEndToken.Span))
+            public void Reset()
             {
-                // NOTE: Encoding.ASCII.GetString(ReadOnlySequence<byte>) was only added in .NET 5.
-
-                int length = checked((int)text.Length);
-
-                var rental = ArrayPool<byte>.Shared.Rent(length);
-
-                try
-                {
-                    text.CopyTo(rental);
-
-                    this.textEntries.Add(Encoding.ASCII.GetString(rental, 0, length));
-                }
-                finally
-                {
-                    ArrayPool<byte>.Shared.Return(rental);
-                }
-
-                return true;
-            }
-            else
-            {
-                return false;
             }
         }
 
-        private bool ReadRasterRow(ref SequenceReader<byte> reader, CancellationToken cancellationToken)
+        private sealed class RasterRowProcessor : IBsbChartProcessor
         {
-            if (reader.IsNext(RasterEndToken.Span))
+            private IList<IList<byte>> entries = new List<IList<byte>>();
+            private IList<byte> rowNumber;
+
+            public (ReaderState?, bool?) ReadChart(ref SequenceReader<byte> reader, CancellationToken cancellationToken, BsbChartReaderState state)
             {
-                reader.Advance(RasterEndToken.Length);
+                if (reader.IsNext(RasterEndToken.Span))
+                {
+                    reader.Advance(RasterEndToken.Length);
 
-                // TODO: Push raster row.
+                    // TODO: Push raster row.
 
-                this.state = ReaderState.RasterSegment;
+                    return (ReaderState.RasterSegment, null);
+                }
 
-                return true;
+                if (reader.TryReadVariableLengthValue(out IList<byte> values))
+                {
+                    if (this.rowNumber == null)
+                    {
+                        this.rowNumber = values;
+                    }
+                    else
+                    {
+                        this.entries.Add(values);
+                    }
+
+                    return (null, true);
+                }
+                else
+                {
+                    return (null, false);
+                }
             }
 
-            if (reader.TryReadVariableLengthValue(out byte[] values))
+            public void Reset()
             {
-                // TODO: Push raster row value.
-
-                return true;
-            }
-            else
-            {
-                return false;
+                this.rowNumber = null;
+                this.entries.Clear();
             }
         }
     }

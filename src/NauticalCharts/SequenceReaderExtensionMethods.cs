@@ -6,11 +6,12 @@ namespace NauticalCharts
 {
     internal static class SequenceReaderExtensionMethods
     {
-        public static bool TryReadVariableLengthValue(ref this SequenceReader<byte> reader, out byte[] values)
+        public static bool TryReadVariableLengthValue(ref this SequenceReader<byte> reader, out IList<byte> values)
         {
-            values = default;
+            // TODO: Look at feasibility of returning span/sequence instead of list.
+            // TODO: Look at using loaned array?
 
-            var byteList = new List<byte>();
+            values = new List<byte>();
 
             byte value;
 
@@ -18,18 +19,18 @@ namespace NauticalCharts
             {
                 if (reader.TryRead(out value))
                 {
-                    byteList.Add((byte)(value & 0x7F));
+                    values.Add((byte)(value & 0x7F));
                 }
                 else
                 {
-                    reader.Rewind(byteList.Count);
+                    reader.Rewind(values.Count);
+
+                    values = null;
 
                     return false;
                 }
 
             } while (value > 127);
-
-            values = byteList.ToArray();
 
             return true;
         }
