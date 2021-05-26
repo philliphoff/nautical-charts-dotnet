@@ -27,15 +27,33 @@ namespace NauticalCharts
             return reader.ReadChartInternalAsync(stream, cancellationToken);
         }
 
-        public static uint ParseRasterRowNumber(IList<byte> values)
+        public static uint ParseRasterRowNumber(ReadOnlySequence<byte> values)
         {
-            uint number = 0;
+            uint? sum = 0;
 
-            for (int i = values.Count - 1, pow = 0; i >= 0; i--, pow++) {
-                number += values[i] * (uint)Math.Pow(128, pow);
+            foreach (var segment in values)
+            {
+                foreach (byte value in segment.Span)
+                {
+                    byte maskedValue = (byte)(value & 0x7F);
+
+                    if (sum.HasValue)
+                    {
+                        sum = (sum.Value * 128) + maskedValue;
+                    }
+                    else
+                    {
+                        sum = maskedValue;
+                    }
+                }
             }
 
-            return number;
+            if (!sum.HasValue)
+            {
+                throw new ArgumentOutOfRangeException(nameof(values));
+            }
+
+            return sum.Value;
         }
 
         private static readonly byte[] colorIndexMasks = new byte[]
@@ -62,27 +80,38 @@ namespace NauticalCharts
             0b00000000
         };
 
-        public static BsbRasterRun ParseRasterRun(IList<byte> values, byte bitDepth)
+        public static BsbRasterRun ParseRasterRun(ReadOnlySequence<byte> values, byte bitDepth)
         {
             byte colorIndexMask = colorIndexMasks[bitDepth];
-
-            byte colorIndex = (byte)((values[0] & colorIndexMask) >> (7 - bitDepth));
-
             byte lengthMask = runLengthMasks[bitDepth];
 
-            uint length = 1;
+            uint? length = null;
+            byte? colorIndex = null;
 
-            for (int i = values.Count - 1, j = 0; i >= 0; i--, j++) {
-                byte v = values[i];
-                
-                if (i == 0) {
-                    v &= lengthMask;
+            foreach (var segment in values)
+            {
+                foreach (byte value in segment.Span)
+                {
+                    byte maskedValue = (byte)(value & 0x7F);
+
+                    if (length.HasValue)
+                    {
+                        length = (length.Value * 128) + maskedValue;
+                    }
+                    else
+                    {
+                        colorIndex = (byte)((maskedValue & colorIndexMask) >> (7 - bitDepth));
+                        length = (uint)(maskedValue & lengthMask);
+                    }
                 }
-
-                length += v * (uint)Math.Pow(128, j);
             }
 
-            return new BsbRasterRun(colorIndex, length);
+            if (!colorIndex.HasValue || !length.HasValue)
+            {
+                throw new ArgumentOutOfRangeException(nameof(values));
+            }
+
+            return new BsbRasterRun(colorIndex.Value, length.Value + 1);
         }
 
         private enum ReaderState
@@ -302,7 +331,7 @@ namespace NauticalCharts
                     return (ReaderState.RasterSegment, null);
                 }
 
-                if (reader.TryReadVariableLengthValue(out IList<byte> values))
+                if (reader.TryReadVariableLengthValue(out ReadOnlySequence<byte> values))
                 {
                     if (this.rowNumber == null)
                     {

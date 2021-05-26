@@ -37,8 +37,12 @@ namespace NauticalCharts.Tests
             Assert.NotNull(chart.RasterSegment);
             Assert.Equal(2098, chart.RasterSegment.Count());
 
+            uint index = 1;
+
             foreach (var row in chart.RasterSegment)
             {
+                Assert.Equal(index++, row.RowNumber);
+
                 Assert.Equal<uint>(1171, row.Runs.Aggregate<BsbRasterRun, uint>(0, (sum, run) => sum + run.Length));
             }
         }
