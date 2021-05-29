@@ -11,17 +11,28 @@ namespace NauticalCharts.Tests
         [Fact]
         public async Task ReadsTextSegment()
         {
-            using var stream = await MockChartStream.CreateAsync("VER/3.07\r\n", 1);
+            using var stream = await MockChartStream.CreateAsync(
+                new[] {
+                    "KNP/SC=40000,GD=WGS84,PR=Mercator,PP=48.666667,PI=4.000,SK=0.000000\r\n",
+                    "    TA=90.000000,UN=METRES,SD=Lower Low Water Large Tide,DX=4.000000\r\n",
+                    "    DY=4.000000\r\n",
+                    "KNQ/EC=WE,GD=WGE,VC=HHLT,SC=LLLT,PC=MC,P1=0.000000,P2=48.666667\r\n",
+                    "    P3=NOT_APPLICABLE,P4=NOT_APPLICABLE,GC=UB,RM=INVERSE\r\n"
+                },
+                1);
 
             var chart = await BsbChartReader.ReadChartAsync(stream);
 
             Assert.NotNull(chart);
             Assert.NotNull(chart.TextSegment);
-            Assert.Equal(1, chart.TextSegment.Count());
-            Assert.NotNull(chart.TextSegment.First().Lines);
-            Assert.Equal(1, chart.TextSegment.First().Lines.Count());
-            Assert.Equal("VER/3.07", chart.TextSegment.First().Lines.First());
-            Assert.True(chart.BitDepth.HasValue);
+
+            var textSegment = chart.TextSegment.ToArray();
+
+            Assert.Equal(2, textSegment.Length);
+
+            Assert.Equal("KNP", textSegment[0].EntryType);
+            Assert.Equal("KNQ", textSegment[1].EntryType);
+
             Assert.Equal(1, chart.BitDepth.Value);
         }
 

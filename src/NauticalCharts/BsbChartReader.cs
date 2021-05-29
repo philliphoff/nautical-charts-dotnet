@@ -125,7 +125,7 @@ namespace NauticalCharts
 
         private sealed class BsbChartReaderState
         {
-            public IList<string> TextEntries { get; } = new List<string>();
+            public IList<BsbTextEntry> TextEntries { get; } = new List<BsbTextEntry>();
 
             public byte? BitDepth { get; set; }
 
@@ -184,7 +184,7 @@ namespace NauticalCharts
             pipeReader.Complete();
 
             return new BsbChart(
-                this.readerState.TextEntries.Select(entry => new BsbTextEntry("TEST", new[] { entry })),
+                this.readerState.TextEntries,
                 this.readerState.BitDepth,
                 this.readerState.RowEntries);
         }
@@ -227,32 +227,48 @@ namespace NauticalCharts
 
         private sealed class TextSegmentProcessor : IBsbChartProcessor
         {
+            private string type;
+            private List<string> lines = new List<string>();
+
             public (ReaderState?, bool?) ReadChart(ref SequenceReader<byte> reader, CancellationToken cancellationToken, BsbChartReaderState state)
             {
                 if (reader.IsNext(TextSegmentEndToken.Span))
                 {
                     reader.Advance(TextSegmentEndToken.Length);
 
+                    this.FlushEntry(state);
+
                     return (ReaderState.BitDepth, null);
                 }
 
                 if (reader.TryReadTo(out ReadOnlySequence<byte> text, TextEntryEndToken.Span))
                 {
-                    // NOTE: Encoding.ASCII.GetString(ReadOnlySequence<byte>) was only added in .NET 5.
+                    // TODO: Use SequenceReader to extract segments?
+                    string line = Encoding.ASCII.GetString(text);
 
-                    int length = checked((int)text.Length);
-
-                    var rental = ArrayPool<byte>.Shared.Rent(length);
-
-                    try
+                    if (line.Length > 0)
                     {
-                        text.CopyTo(rental);
+                        if (line[0] == '!')
+                        {
+                            this.StartEntry("!", line.Substring(1), state);
+                        }
+                        else if (line.StartsWith("    "))
+                        {
+                            this.lines.Add(line.Substring(4));
+                        }
+                        else
+                        {
+                            int index = line.IndexOf('/');
 
-                        state.TextEntries.Add(Encoding.ASCII.GetString(rental, 0, length));
-                    }
-                    finally
-                    {
-                        ArrayPool<byte>.Shared.Return(rental);
+                            if (index >= 0)
+                            {
+                                this.StartEntry(line.Substring(0, index), line.Substring(index + 1), state);
+                            }
+                            else
+                            {
+                                this.StartEntry("?", line, state);
+                            }
+                        }
                     }
 
                     return (null, true);
@@ -265,6 +281,26 @@ namespace NauticalCharts
 
             public void Reset()
             {
+                this.type = null;
+                this.lines.Clear();
+            }
+
+            private void StartEntry(string type, string line, BsbChartReaderState state)
+            {
+                this.FlushEntry(state);
+
+                this.type = type;
+                this.lines.Add(line);
+            }
+
+            private void FlushEntry(BsbChartReaderState state)
+            {
+                if (this.type != null)
+                {
+                    state.TextEntries.Add(new BsbTextEntry(this.type, this.lines.ToArray()));
+                }
+
+                this.Reset();
             }
         }
 
