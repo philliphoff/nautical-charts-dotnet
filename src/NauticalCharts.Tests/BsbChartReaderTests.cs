@@ -52,9 +52,9 @@ namespace NauticalCharts.Tests
 
             foreach (var row in chart.RasterSegment)
             {
-                Assert.Equal(index++, row.RowNumber);
+                Assert.Equal(index++, row.Key);
 
-                Assert.Equal<uint>(1171, row.Runs.Aggregate<BsbRasterRun, uint>(0, (sum, run) => sum + run.Length));
+                Assert.Equal<uint>(1171, row.Value.Aggregate<BsbRasterRun, uint>(0, (sum, run) => sum + run.Length));
             }
         }
     }

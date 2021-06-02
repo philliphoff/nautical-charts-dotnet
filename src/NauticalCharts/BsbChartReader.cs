@@ -129,7 +129,7 @@ namespace NauticalCharts
 
             public byte? BitDepth { get; set; }
 
-            public IList<BsbRasterRow> RowEntries { get; } = new List<BsbRasterRow>();
+            public Dictionary<uint, IEnumerable<BsbRasterRun>> RowEntries { get; } = new Dictionary<uint, IEnumerable<BsbRasterRun>>();
         }
 
         private readonly IBsbChartProcessor textSegmentProcessor = new TextSegmentProcessor();
@@ -362,7 +362,7 @@ namespace NauticalCharts
                         throw new InvalidOperationException("A raster row should start with a row number.");
                     }
 
-                    state.RowEntries.Add(new BsbRasterRow(this.rowNumber.Value, this.entries));
+                    state.RowEntries.Add(this.rowNumber.Value, this.entries);
 
                     return (ReaderState.RasterSegment, null);
                 }
