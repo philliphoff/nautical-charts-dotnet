@@ -362,7 +362,7 @@ namespace NauticalCharts
                         throw new InvalidOperationException("A raster row should start with a row number.");
                     }
 
-                    state.RowEntries.Add(this.rowNumber.Value, this.entries);
+                    state.RowEntries.Add(this.rowNumber.Value, this.entries.ToArray());
 
                     return (ReaderState.RasterSegment, null);
                 }
