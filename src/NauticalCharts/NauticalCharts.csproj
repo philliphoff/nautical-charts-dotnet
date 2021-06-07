@@ -6,8 +6,17 @@
   </PropertyGroup>
 
   <PropertyGroup>
+    <AssemblyName>OncaInc.NauticalCharts</AssemblyName>
     <TargetFramework>netstandard2.1</TargetFramework>
     <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Version>0.1.0</Version>
+    <Authors>Phillip Hoff</Authors>
+    <Company>Onca, Inc.</Company>
+    <Title>Nautical Charts</Title>
+    <PackageDescription>A library for reading nautical chart files.</PackageDescription>
   </PropertyGroup>
 
   <ItemGroup>
