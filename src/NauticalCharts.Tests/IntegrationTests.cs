@@ -9,10 +9,10 @@ using Xunit;
 
 namespace NauticalCharts.Tests
 {
-    public class BsbChartWriterTests
+    public class IntegrationTests
     {
         [Fact]
-        public async Task IntegrationTest()
+        public async Task ImageConversionTest()
         {
             using var stream = File.OpenRead("../../../../../assets/test/344102.KAP");
 
@@ -29,21 +29,13 @@ namespace NauticalCharts.Tests
                 {
                     var rowSpan = actualImage.GetPixelRowSpan(y);
 
-                    BsbChartWriter.WriteRasterRow(chart.RasterSegment, metadata.Palette, (uint)y, rowSpan, converter);
+                    BsbChartWriter.WriteRasterRow(chart.RasterSegment, metadata.Palette, y, rowSpan, converter);
                 };
 
             for (int y = 0; y < actualImage.Height; y++)
             {
                 rowSetter(y);
             }
-
-            //actualImage.Mutate(c => c.ProcessPixelRowsAsVector4(
-            //    (row, point) =>
-            //    {
-            //        Debug.Assert(point.X == 0, "Cannot assume entire rows.");
-
-            //        BsbChartWriter.WriteRasterRow(chart.RasterSegment, metadata.Palette, (uint)point.Y, row);
-            //    }));
 
             using var expectedImage = await Image.LoadAsync<Rgba32>("../../../../../assets/test/344102.png");
 
