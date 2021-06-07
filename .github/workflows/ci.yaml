@@ -8,6 +8,9 @@ on:
 jobs:
 
   ci:
+    env:
+      CONFIGURATION: Release
+
     runs-on: ubuntu-latest
 
     steps:
@@ -20,6 +23,8 @@ jobs:
       - name: Restore
         run: dotnet restore
       - name: Build
-        run: dotnet build --configuration Release --no-restore
+        run: dotnet build --configuration ${CONFIGURATION} --no-restore
       - name: Test
-        run: dotnet test --no-restore --verbosity normal
+        run: dotnet test --configuration ${CONFIGURATION} --no-build --verbosity normal
+      - name: Pack
+        run: dotnet pack --configuration ${CONFIGURATION} --no-build
