@@ -32,5 +32,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: nupkg
-          path: ./src/NauticalCharts/bin/${{ env.CONFIGURATION }}/*.nupkg
+          path: |
+            ./src/NauticalCharts/bin/${{ env.CONFIGURATION }}/*.nupkg
+            ./src/NauticalCharts.ImageSharp/bin/${{ env.CONFIGURATION }}/*.nupkg
           if-no-files-found: error
