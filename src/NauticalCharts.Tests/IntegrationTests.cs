@@ -18,24 +18,7 @@ namespace NauticalCharts.Tests
 
             var chart = await BsbChartReader.ReadChartAsync(stream);
 
-            var metadata = BsbMetadataReader.ReadMetadata(chart.TextSegment);
-
-            using var actualImage = new Image<Rgba32>(metadata.Size.Width, metadata.Size.Height);
-
-            Func<BsbColor, Rgba32> converter = color => new Rgba32(color.R, color.G, color.B, 0xFF);
-
-            Action<int> rowSetter =
-                y =>
-                {
-                    var rowSpan = actualImage.GetPixelRowSpan(y);
-
-                    BsbChartWriter.WriteRasterRow(chart.RasterSegment, metadata.Palette, y, rowSpan, converter);
-                };
-
-            for (int y = 0; y < actualImage.Height; y++)
-            {
-                rowSetter(y);
-            }
+            using var actualImage = chart.ToImage();
 
             using var expectedImage = await Image.LoadAsync<Rgba32>("../../../../../assets/test/344102.png");
 

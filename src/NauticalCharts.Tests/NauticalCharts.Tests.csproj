@@ -14,6 +14,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\NauticalCharts\NauticalCharts.csproj" />
+    <ProjectReference Include="..\NauticalCharts.ImageSharp\NauticalCharts.ImageSharp.csproj" />
   </ItemGroup>
 
   <ItemGroup>
