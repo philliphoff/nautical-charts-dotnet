@@ -24,6 +24,7 @@ namespace NauticalCharts
             var parsers = new Dictionary<string, Func<BsbMetadata, IEnumerable<BsbTextEntry>, BsbMetadata>>
             {
                 { "BSB", ParseSize },
+                { "PLY", ParseBorder },
                 { "RGB", ParsePrimaryPalette }
             };
 
@@ -33,6 +34,38 @@ namespace NauticalCharts
                 {
                     metadata = parser.Value(metadata, typeTextEntries);
                 }
+            }
+
+            return metadata;
+        }
+
+        private static Regex BorderRegex = new Regex("^(?<order>\\d+),(?<latitude>[-+]?(\\d*\\.?\\d+|\\d+)),(?<longitude>[-+]?(\\d*\\.?\\d+|\\d+))$");
+
+        private static BsbMetadata ParseBorder(BsbMetadata metadata, IEnumerable<BsbTextEntry> textEntries)
+        {
+            var border =
+                textEntries
+                    .SelectMany(textEntry => textEntry.Lines)
+                    .Select(line => BorderRegex.Match(line))
+                    .Where(match => match.Success)
+                    .Select(
+                        match =>
+                        {
+                            return new
+                            {
+                                Order = Int32.Parse(match.Groups["order"].Value),
+                                Coordinate = new BsbCoordinate(
+                                    Double.Parse(match.Groups["latitude"].Value),
+                                    Double.Parse(match.Groups["longitude"].Value))
+                            };
+                        })
+                    .OrderBy(item => item.Order)
+                    .Select(item => item.Coordinate)
+                    .ToList();
+
+            if (border.Count > 0)
+            {
+                return metadata with { Border = border };
             }
 
             return metadata;

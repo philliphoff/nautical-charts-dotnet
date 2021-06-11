@@ -5,6 +5,33 @@ namespace NauticalCharts.Tests
     public class BsbMetadataReaderTests
     {
         [Fact]
+        public void ReadBorderMetadata()
+        {
+            var metadata = BsbMetadataReader.ReadMetadata(
+                new[]
+                {
+                    new BsbTextEntry("PLY", new[] { "1,48.483188901744,-123.559587398261" }),
+                    new BsbTextEntry("PLY", new[] { "2,48.483188901744,-123.509681638709" }),
+                    new BsbTextEntry("PLY", new[] { "3,48.549788623084,-123.509681638709" }),
+                    new BsbTextEntry("PLY", new[] { "4,48.549788623084,-123.559587398261" }),
+                    new BsbTextEntry("PLY", new[] { "5,48.483188901744,-123.559587398261" }),
+                });
+
+            Assert.NotNull(metadata);
+            Assert.NotNull(metadata.Border);
+            Assert.Equal(
+                new[]
+                {
+                    new BsbCoordinate(48.483188901744, -123.559587398261),
+                    new BsbCoordinate(48.483188901744, -123.509681638709),
+                    new BsbCoordinate(48.549788623084, -123.509681638709),
+                    new BsbCoordinate(48.549788623084, -123.559587398261),
+                    new BsbCoordinate(48.483188901744, -123.559587398261),
+                },
+                metadata.Border);
+        }
+
+        [Fact]
         public void ReadSizeMetadata()
         {
             var metadata = BsbMetadataReader.ReadMetadata(new[] { new BsbTextEntry("BSB", new[] { "NA=CONTINUATION A,NU=344102,RA=1171,2098,DU=254" }) });
