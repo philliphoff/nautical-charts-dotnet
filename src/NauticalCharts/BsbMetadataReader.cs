@@ -14,30 +14,25 @@ namespace NauticalCharts
                 throw new ArgumentNullException(nameof(textEntries));
             }
 
-            var entryMap = new Dictionary<string, IList<BsbTextEntry>>();
-
-            foreach (var textEntry in textEntries)
-            {
-                IList<BsbTextEntry> entries;
-
-                if (!entryMap.TryGetValue(textEntry.EntryType, out entries))
-                {
-                    entryMap[textEntry.EntryType] = entries = new List<BsbTextEntry>();
-                }
-
-                entries.Add(textEntry);
-            }
+            var entryMap =
+                textEntries
+                    .GroupBy(textEntry => textEntry.EntryType)
+                    .ToDictionary(grouping => grouping.Key);
 
             var metadata = new BsbMetadata();
 
-            if (entryMap.TryGetValue("BSB", out IList<BsbTextEntry> bsbEntries))
+            var parsers = new Dictionary<string, Func<BsbMetadata, IEnumerable<BsbTextEntry>, BsbMetadata>>
             {
-                metadata = ParseSize(metadata, bsbEntries);
-            }
+                { "BSB", ParseSize },
+                { "RGB", ParsePrimaryPalette }
+            };
 
-            if (entryMap.TryGetValue("RGB", out IList<BsbTextEntry> rgbEntries))
+            foreach (var parser in parsers)
             {
-                metadata = ParsePrimaryPalette(metadata, rgbEntries);
+                if (entryMap.TryGetValue(parser.Key, out IGrouping<string, BsbTextEntry> typeTextEntries))
+                {
+                    metadata = parser.Value(metadata, typeTextEntries);
+                }
             }
 
             return metadata;
@@ -45,7 +40,7 @@ namespace NauticalCharts
 
         private static Regex SizeRegex = new Regex("RA=(?<width>\\d+),(?<height>\\d+)");
 
-        private static BsbMetadata ParseSize(BsbMetadata metadata, IList<BsbTextEntry> textEntries)
+        private static BsbMetadata ParseSize(BsbMetadata metadata, IEnumerable<BsbTextEntry> textEntries)
         {
             var match =
                 textEntries
@@ -66,7 +61,7 @@ namespace NauticalCharts
 
         private static Regex PaletteRegex = new Regex("^(?<index>\\d+),(?<r>\\d+),(?<g>\\d+),(?<b>\\d+)$");
 
-        private static BsbMetadata ParsePrimaryPalette(BsbMetadata metadata, IList<BsbTextEntry> textEntries)
+        private static BsbMetadata ParsePrimaryPalette(BsbMetadata metadata, IEnumerable<BsbTextEntry> textEntries)
         {
             var palette =
                 textEntries
