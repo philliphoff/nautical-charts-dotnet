@@ -17,6 +17,7 @@
     <Company>Onca, Inc.</Company>
     <Title>Nautical Charts</Title>
     <PackageDescription>A library for converting nautical chart files to images.</PackageDescription>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 
   <ItemGroup>

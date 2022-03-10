@@ -17,6 +17,7 @@
     <Company>Onca, Inc.</Company>
     <Title>Nautical Charts</Title>
     <PackageDescription>A library for reading nautical chart files.</PackageDescription>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 
   <ItemGroup>
