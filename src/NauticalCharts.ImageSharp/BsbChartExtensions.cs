@@ -32,18 +32,17 @@ namespace NauticalCharts
             {
                 Func<BsbColor, Rgba32> converter = color => new Rgba32(color.R, color.G, color.B, 0xFF);
 
-                Action<int> rowSetter =
-                    y =>
+                image.ProcessPixelRows(
+                    accessor =>
                     {
-                        var rowSpan = image.GetPixelRowSpan(y);
+                        for (int y = 0; y < accessor.Height; y++)
+                        {
+                            var rowSpan = accessor.GetRowSpan(y);
 
-                        BsbChartWriter.WriteRasterRow(chart.RasterSegment, palette, y, rowSpan, converter);
-                    };
+                            BsbChartWriter.WriteRasterRow(chart.RasterSegment, palette, y, rowSpan, converter);
+                        }
 
-                for (int y = 0; y < image.Height; y++)
-                {
-                    rowSetter(y);
-                }
+                    });
 
                 return image;
             }

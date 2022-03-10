@@ -13,12 +13,9 @@ namespace NauticalCharts.Tests
 
             for (int y = 0; y < expected.Height; y++)
             {
-                var expectedRow = expected.GetPixelRowSpan(y);
-                var actualRow = actual.GetPixelRowSpan(y);
-
                 for (int x = 0; x < expected.Width; x++)
                 {
-                    Assert.Equal(expectedRow[x], actualRow[x]);
+                    Assert.Equal(expected[x, y], actual[x, y]);
                 }
             }
         }
