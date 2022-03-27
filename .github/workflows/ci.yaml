@@ -40,6 +40,8 @@ jobs:
   publish:
     environment: 'NuGet'
 
+    needs: ci
+
     runs-on: ubuntu-latest
 
     steps:
