@@ -32,6 +32,16 @@ namespace NauticalCharts.Tests
         }
 
         [Fact]
+        public void ReadNameMetadata()
+        {
+            var metadata = BsbMetadataReader.ReadMetadata(new[] { new BsbTextEntry("BSB", new[] { "NA=CONTINUATION A,NU=344102,RA=1171,2098,DU=254" }) });
+
+            Assert.NotNull(metadata);
+            Assert.NotNull(metadata.Name);
+            Assert.Equal("CONTINUATION A", metadata.Name);
+        }
+
+        [Fact]
         public void ReadSizeMetadata()
         {
             var metadata = BsbMetadataReader.ReadMetadata(new[] { new BsbTextEntry("BSB", new[] { "NA=CONTINUATION A,NU=344102,RA=1171,2098,DU=254" }) });

@@ -2,15 +2,17 @@ using System.Collections.Generic;
 
 namespace NauticalCharts
 {
-    public record BsbColor(byte R, byte G, byte B);
+    public sealed record BsbColor(byte R, byte G, byte B);
 
-    public record BsbCoordinate(double Latitude, double Longitude);
+    public sealed record BsbCoordinate(double Latitude, double Longitude);
 
-    public record BsbSize(int Height, int Width);
+    public sealed record BsbSize(int Height, int Width);
 
-    public record BsbMetadata
+    public sealed record BsbMetadata
     {
         public IReadOnlyList<BsbCoordinate> Border { get; init; }
+
+        public string? Name { get; init; }
 
         public IReadOnlyDictionary<byte, BsbColor> Palette { get; init; }
 

@@ -23,7 +23,7 @@ namespace NauticalCharts
 
             var parsers = new Dictionary<string, Func<BsbMetadata, IEnumerable<BsbTextEntry>, BsbMetadata>>
             {
-                { "BSB", ParseSize },
+                { "BSB", ParseNameAndSize },
                 { "PLY", ParseBorder },
                 { "RGB", ParsePrimaryPalette }
             };
@@ -71,22 +71,34 @@ namespace NauticalCharts
             return metadata;
         }
 
+        private static Regex NameRegex = new Regex("NA=(?<name>[^,]+)");
         private static Regex SizeRegex = new Regex("RA=(?<width>\\d+),(?<height>\\d+)");
 
-        private static BsbMetadata ParseSize(BsbMetadata metadata, IEnumerable<BsbTextEntry> textEntries)
+        private static BsbMetadata ParseNameAndSize(BsbMetadata metadata, IEnumerable<BsbTextEntry> textEntries)
         {
-            var match =
+            var nameMatch =
+                textEntries
+                    .SelectMany(textEntry => textEntry.Lines)
+                    .Select(line => NameRegex.Match(line))
+                    .FirstOrDefault(match => match.Success);
+
+            if (nameMatch != null)
+            {
+                metadata = metadata with { Name = nameMatch.Groups["name"].Value };
+            }
+
+            var sizeMatch =
                 textEntries
                     .SelectMany(textEntry => textEntry.Lines)
                     .Select(line => SizeRegex.Match(line))
                     .FirstOrDefault(match => match.Success);
 
-            if (match != null)
+            if (sizeMatch != null)
             {
-                int height = Int32.Parse(match.Groups["height"].Value);
-                int width = Int32.Parse(match.Groups["width"].Value);
+                int height = Int32.Parse(sizeMatch.Groups["height"].Value);
+                int width = Int32.Parse(sizeMatch.Groups["width"].Value);
 
-                return metadata with { Size = new BsbSize(height, width) };
+                metadata = metadata with { Size = new BsbSize(height, width) };
             }
 
             return metadata;
