@@ -36,3 +36,19 @@ jobs:
             ./src/NauticalCharts/bin/${{ env.CONFIGURATION }}/*.nupkg
             ./src/NauticalCharts.ImageSharp/bin/${{ env.CONFIGURATION }}/*.nupkg
           if-no-files-found: error
+
+  publish:
+    environment: 'NuGet'
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Setup NuGet
+      uses: NuGet/setup-nuget@v1.0.5
+    - name: Download Artifact
+      id: download
+      uses: actions/download-artifact@v3
+      with:
+        name: nupkg
+    - name: Publish
+        run: nuget push ${{ steps.download.outputs.download-path }}/**/*.nupkg -Source 'https://api.nuget.org/v3/index.json' -ApiKey ${{secrets.NUGET_API_KEY}}
