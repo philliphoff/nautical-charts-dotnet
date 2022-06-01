@@ -31,4 +31,10 @@
     </PackageReference>
   </ItemGroup>
 
+  <ItemGroup>
+    <None Remove="Metadata\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Metadata\" />
+  </ItemGroup>
 </Project>

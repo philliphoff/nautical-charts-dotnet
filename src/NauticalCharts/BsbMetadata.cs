@@ -10,12 +10,12 @@ namespace NauticalCharts
 
     public sealed record BsbMetadata
     {
-        public IReadOnlyList<BsbCoordinate> Border { get; init; }
+        public IReadOnlyList<BsbCoordinate>? Border { get; init; }
 
         public string? Name { get; init; }
 
-        public IReadOnlyDictionary<byte, BsbColor> Palette { get; init; }
+        public IReadOnlyDictionary<byte, BsbColor>? Palette { get; init; }
 
-        public BsbSize Size { get; init; }
+        public BsbSize? Size { get; init; }
     }
 }
