@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text.RegularExpressions;
 
@@ -36,7 +37,7 @@ public static class BsbTextEntryReaders
             : null;
     }
 
-    public static readonly BsbTextEntryReader<IReadOnlyList<BsbCoordinate>?> Border = new("PLY", BorderReader);
+    public static readonly BsbTextEntryReader<IReadOnlyList<BsbCoordinate>?> Border = new("^PLY$", BorderReader);
 
     private static Regex NameRegex = new Regex("NA=(?<name>[^,]+)");
     private static Regex SizeRegex = new Regex("RA=(?<width>\\d+),(?<height>\\d+)");
@@ -74,7 +75,7 @@ public static class BsbTextEntryReaders
         return (name, size);
     }
 
-    public static readonly BsbTextEntryReader<(string? Name, BsbSize? Size)> NameAndSize = new("BSB", NameAndSizeReader);
+    public static readonly BsbTextEntryReader<(string? Name, BsbSize? Size)> NameAndSize = new("^BSB$", NameAndSizeReader);
 
     private static Regex PaletteRegex = new Regex("^(?<index>\\d+),(?<r>\\d+),(?<g>\\d+),(?<b>\\d+)$");
 
@@ -104,5 +105,60 @@ public static class BsbTextEntryReaders
             : null;
     }
 
-    public static readonly BsbTextEntryReader<IReadOnlyDictionary<byte, BsbColor>?> PrimaryPalette = new("RGB", PrimaryPaletteReader);
+    public static readonly BsbTextEntryReader<IReadOnlyDictionary<byte, BsbColor>?> PrimaryPalette = new("^RGB$", PrimaryPaletteReader);
+
+    private static Regex PanelNameRegex = new Regex("NA=(?<name>[^,]+)");
+    private static Regex PanelNumberRegex = new Regex("NU=(?<number>[^,]+)");
+    private static Regex PanelTypeRegex = new Regex("TY=(?<type>[^,]+)");
+    private static Regex PanelFileNameRegex = new Regex("FN=(?<filename>[^,]+)");
+
+    private static IReadOnlyList<BsbPanelRecord> PanelsReader(IEnumerable<BsbTextEntry> textEntries)
+    {
+        var records = new List<BsbPanelRecord>();
+
+        foreach (var textEntry in textEntries.OrderBy(e => e.EntryType))
+        {
+            bool TryGetMatch(Regex regex, [NotNullWhen(true)] out Match? match)
+            {
+                match =
+                    textEntry
+                        .Lines
+                        .Select(line => regex.Match(line))
+                        .FirstOrDefault(match => match.Success);
+
+                return match != null;
+            }
+
+            var record = new BsbPanelRecord();
+
+            if (TryGetMatch(PanelNameRegex, out Match? nameMatch))
+            {
+                record = record with { Name = nameMatch.Groups["name"].Value };
+            }
+
+            if (TryGetMatch(PanelNumberRegex, out Match? numberMatch))
+            {
+                record = record with { Number = numberMatch.Groups["number"].Value };
+            }
+
+            if (TryGetMatch(PanelTypeRegex, out Match? typeMatch))
+            {
+                record = record with { Type = typeMatch.Groups["type"].Value };
+            }
+
+            if (TryGetMatch(PanelFileNameRegex, out Match? fileNameMatch))
+            {
+                record = record with { FileName = fileNameMatch.Groups["filename"].Value };
+            }
+
+            if (record != default)
+            {
+                records.Add(record);
+            }
+        }
+
+        return records;
+    }
+
+    public static readonly BsbTextEntryReader<IReadOnlyList<BsbPanelRecord>?> Panels = new(@"^K\d{2}$", PanelsReader);
 }

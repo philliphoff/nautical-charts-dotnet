@@ -69,5 +69,30 @@ public class BsbTextEntryReadersTests
         Assert.Equal(208, metadata[3].G);
         Assert.Equal(184, metadata[3].B);
     }
+
+    [Fact]
+    public void ReadPanelRecords()
+    {
+        var textEntries = new[]
+        {
+            new BsbTextEntry("K01", new[] { "NA=VICTORIA HARBOUR,NU=341201,TY=Base,FN=341201.KAP" }),
+            new BsbTextEntry("K02", new[] { "NA=CONTINUATION A,NU=341202,TY=Inset,FN=341202.KAP" }),
+        };
+
+        var records = BsbTextEntryReaders.Panels.Reader(textEntries);
+
+        Assert.NotNull(records);
+        Assert.Equal(2, records.Count);
+
+        Assert.Equal("VICTORIA HARBOUR", records[0].Name);
+        Assert.Equal("341201", records[0].Number);
+        Assert.Equal("Base", records[0].Type);
+        Assert.Equal("341201.KAP", records[0].FileName);
+
+        Assert.Equal("CONTINUATION A", records[1].Name);
+        Assert.Equal("341202", records[1].Number);
+        Assert.Equal("Inset", records[1].Type);
+        Assert.Equal("341202.KAP", records[1].FileName);
+    }
 }
 
