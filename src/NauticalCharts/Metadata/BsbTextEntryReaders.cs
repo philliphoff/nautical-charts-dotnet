@@ -161,4 +161,45 @@ public static class BsbTextEntryReaders
     }
 
     public static readonly BsbTextEntryReader<IReadOnlyList<BsbPanelRecord>?> Panels = new(@"^K\d{2}$", PanelsReader);
+
+    private static Regex ChartNameRegex = new Regex("NA=(?<name>[^,]+)");
+    private static Regex ChartNumberRegex = new Regex("NU=(?<number>[^,]+)");
+
+    private static BsbChartGeneralParameters? ChartGeneralParametersReader(IEnumerable<BsbTextEntry> textEntries)
+    {
+        foreach (var textEntry in textEntries.OrderBy(e => e.EntryType))
+        {
+            bool TryGetMatch(Regex regex, [NotNullWhen(true)] out Match? match)
+            {
+                match =
+                    textEntry
+                        .Lines
+                        .Select(line => regex.Match(line))
+                        .FirstOrDefault(match => match.Success);
+
+                return match != null;
+            }
+
+            var record = new BsbChartGeneralParameters();
+
+            if (TryGetMatch(ChartNameRegex, out Match? nameMatch))
+            {
+                record = record with { Name = nameMatch.Groups["name"].Value };
+            }
+
+            if (TryGetMatch(ChartNumberRegex, out Match? numberMatch))
+            {
+                record = record with { Number = numberMatch.Groups["number"].Value };
+            }
+
+            if (record != default)
+            {
+                return record;
+            }
+        }
+
+        return null;
+    }
+
+    public static readonly BsbTextEntryReader<BsbChartGeneralParameters?> ChartGeneralParameters = new(@"^CHT$", ChartGeneralParametersReader);
 }

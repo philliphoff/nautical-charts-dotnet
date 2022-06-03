@@ -94,5 +94,22 @@ public class BsbTextEntryReadersTests
         Assert.Equal("Inset", records[1].Type);
         Assert.Equal("341202.KAP", records[1].FileName);
     }
+
+    [Fact]
+    public void ReadChartGeneralParameters()
+    {
+        var textEntries = new[]
+        {
+            new BsbTextEntry("CHT", new[] { "NA=VICTORIA HARBOUR,NU=3412" }),
+        };
+
+        var parameters = BsbTextEntryReaders.Panels.Reader(textEntries);
+
+        Assert.NotNull(parameters);
+        Assert.Equal(1, parameters.Count);
+
+        Assert.Equal("VICTORIA HARBOUR", parameters[0].Name);
+        Assert.Equal("3412", parameters[0].Number);
+    }
 }
 
