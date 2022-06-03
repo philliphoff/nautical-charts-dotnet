@@ -6,7 +6,7 @@ namespace NauticalCharts
 
     public sealed record BsbCoordinate(double Latitude, double Longitude);
 
-    public sealed record BsbSize(int Height, int Width);
+    public sealed record BsbSize(uint Height, uint Width);
 
     public sealed record BsbMetadata
     {

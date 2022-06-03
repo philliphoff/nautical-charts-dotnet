@@ -34,14 +34,14 @@ public class BsbTextEntryReadersTests
     [Fact]
     public void ReadNameMetadata()
     {
-        var metadata = BsbTextEntryReaders.NameAndSize.Reader(new[] { new BsbTextEntry("BSB", new[] { "NA=CONTINUATION A,NU=344102,RA=1171,2098,DU=254" }) });
+        var metadata = BsbTextEntryReaders.PanelGeneralParameters.Reader(new[] { new BsbTextEntry("BSB", new[] { "NA=CONTINUATION A,NU=344102,RA=1171,2098,DU=254" }) });
 
         Assert.NotNull(metadata.Name);
         Assert.Equal("CONTINUATION A", metadata.Name);
 
         Assert.NotNull(metadata.Size);
-        Assert.Equal(2098, metadata.Size.Height);
-        Assert.Equal(1171, metadata.Size.Width);
+        Assert.Equal(2098U, metadata.Size.Height);
+        Assert.Equal(1171U, metadata.Size.Width);
     }
 
     [Fact]

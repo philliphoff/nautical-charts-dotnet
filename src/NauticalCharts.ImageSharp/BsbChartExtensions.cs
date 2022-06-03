@@ -26,7 +26,7 @@ namespace NauticalCharts
                 throw new ArgumentNullException(nameof(chart));
             }
 
-            var image = new Image<Rgba32>(size.Width, size.Height);
+            var image = new Image<Rgba32>((int)size.Width, (int)size.Height);
 
             try
             {

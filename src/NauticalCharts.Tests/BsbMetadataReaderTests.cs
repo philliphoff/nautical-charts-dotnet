@@ -48,8 +48,8 @@ namespace NauticalCharts.Tests
 
             Assert.NotNull(metadata);
             Assert.NotNull(metadata.Size);
-            Assert.Equal(2098, metadata.Size.Height);
-            Assert.Equal(1171, metadata.Size.Width);
+            Assert.Equal(2098U, metadata.Size.Height);
+            Assert.Equal(1171U, metadata.Size.Width);
         }
 
         [Fact]

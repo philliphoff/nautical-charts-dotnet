@@ -40,42 +40,54 @@ public static class BsbTextEntryReaders
     public static readonly BsbTextEntryReader<IReadOnlyList<BsbCoordinate>?> Border = new("^PLY$", BorderReader);
 
     private static Regex NameRegex = new Regex("NA=(?<name>[^,]+)");
+    private static Regex NumberRegex = new Regex("NU=(?<number>[^,]+)");
     private static Regex SizeRegex = new Regex("RA=(?<width>\\d+),(?<height>\\d+)");
+    private static Regex DrawingUnitsRegex = new Regex("DU=(?<number>\\d+)");
 
-    private static (string? Name, BsbSize? Size) NameAndSizeReader(IEnumerable<BsbTextEntry> textEntries)
+    private static BsbPanelGeneralParameters? PanelGeneralParametersReader(IEnumerable<BsbTextEntry> textEntries)
     {
-        string? name = null;
-        BsbSize? size = null;
-
-        var nameMatch =
-            textEntries
-                .SelectMany(textEntry => textEntry.Lines)
-                .Select(line => NameRegex.Match(line))
-                .FirstOrDefault(match => match.Success);
-
-        if (nameMatch != null)
+        bool TryGetMatch(Regex regex, [NotNullWhen(true)] out Match? match)
         {
-            name = nameMatch.Groups["name"].Value;
+            match =
+                textEntries
+                    .SelectMany(entry => entry.Lines)
+                    .Select(line => regex.Match(line))
+                    .FirstOrDefault(match => match.Success);
+
+            return match != null;
         }
 
-        var sizeMatch =
-            textEntries
-                .SelectMany(textEntry => textEntry.Lines)
-                .Select(line => SizeRegex.Match(line))
-                .FirstOrDefault(match => match.Success);
+        var parameters = new BsbPanelGeneralParameters();
 
-        if (sizeMatch != null)
+        if (TryGetMatch(NameRegex, out Match? nameMatch))
         {
-            int height = Int32.Parse(sizeMatch.Groups["height"].Value);
-            int width = Int32.Parse(sizeMatch.Groups["width"].Value);
-
-            size = new BsbSize(height, width);
+            parameters = parameters with { Name = nameMatch.Groups["name"].Value };
         }
 
-        return (name, size);
+        if (TryGetMatch(NumberRegex, out Match? numberMatch))
+        {
+            parameters = parameters with { Number = numberMatch.Groups["number"].Value };
+        }
+
+        if (TryGetMatch(SizeRegex, out Match? sizeMatch))
+        {
+            parameters = parameters with { Size = new BsbSize(UInt32.Parse(sizeMatch.Groups["height"].Value), UInt32.Parse(sizeMatch.Groups["width"].Value)) };
+        }
+
+        if (TryGetMatch(DrawingUnitsRegex, out Match? duRegex))
+        {
+            parameters = parameters with { DrawingUnits = UInt16.Parse(duRegex.Groups["number"].Value) };
+        }
+
+        if (parameters != default)
+        {
+            return parameters;
+        }
+
+        return null;
     }
 
-    public static readonly BsbTextEntryReader<(string? Name, BsbSize? Size)> NameAndSize = new("^BSB$", NameAndSizeReader);
+    public static readonly BsbTextEntryReader<BsbPanelGeneralParameters?> PanelGeneralParameters = new("^BSB$", PanelGeneralParametersReader);
 
     private static Regex PaletteRegex = new Regex("^(?<index>\\d+),(?<r>\\d+),(?<g>\\d+),(?<b>\\d+)$");
 
